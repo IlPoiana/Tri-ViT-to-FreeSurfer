@@ -1,0 +1,6 @@
+data/*
+IXI/*
+
+FreeSurfer/data/*
+FreeSurfer/license.txt
+*.sif

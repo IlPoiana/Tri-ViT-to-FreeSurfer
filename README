@@ -1,0 +1,118 @@
+## Objectives
+- What FreeSurfer does?
+  - What data generates?
+  - Which kind of features does it generates for which application?
+  - What is the dimensionality of these data?
+- Is it possible to isolate the prediction phase of FreeSurfer? Yes so on whats does it bases the prediction?
+
+So, for doing like a segmentation or a region classification task, probably is better to see stuff like YOLO or SAM
+
+I can see instead a better outcome for directly extracting a statistical map and see how it performs.
+Maybe a joint training from freeSurfer output as ground truth?
+
+
+
+## Tools
+### FreeSurfer
+Using Apptainer(Singularity) to host Ubuntu20 image(docker).     
+
+On dockerHub are available both the latest current stable(12/02/26) 7.4.1 and the 8_x (GPU enabled version)
+
+#### 1. Pull the image(only once)
+*Docker*
+```bash
+docker pull freesurfer/freesurfer:7.4.1
+```
+
+```bash
+docker pull freesurfer/freesurfer:8.1.0
+```
+
+*Apptainer(Baldo cluster)*
+```bash
+apptainer pull freesurfer_7.4.1.sif docker://freesurfer/freesurfer:7.4.1
+```
+
+```bash
+apptainer pull freesurfer_8.1.0.sif docker://freesurfer/freesurfer:8.1.0
+```
+
+#### 2. Licence File
+To obtain the licence is necessary to visit https://surfer.nmr.mgh.harvard.edu/registration.html.
+
+Compile the form and paste the `license.txt` file attached to confirmation email received
+
+#### 3. Execute the image binding system directories
+
+```bash
+apptainer shell \
+  --cleanenv \ 
+  --bind /license.txt:/opt/freesurfer/license.txt \
+  --bind /host-data:/data \
+  --bind /FreeSurferOut \
+  freesurfer_7.4.1.sif
+```
+- The `--cleanenv` is for omitting host ENV variables into the image
+- The `--bind ~/license.txt:/opt/freesurfer/license.txt` is necessary for using FreeSurfer
+- The `--bind /host-data:/data` is for mounting host data into FreeSurfer
+- *(Optional)*The `/FreeSurferOut` is for mounting a host directory where storing the logs of FreeSurfer
+
+### Triamese-ViT
+I'm removing all the useless models because I'm getting a lot of interferences with the dependencies
+
+Flags for 
+- `Training.py`:
+  1. --train_folder 
+  2. --excel_path
+
+```bash
+python3 Training.py --train_folder data/IXI_test --excel_path ../IXI.xls
+```
+
+- `Prediction`:
+  1. --train_folder
+  2. --valid_folder
+  3. --test_folder
+  4. --excel_path
+  
+
+## References
+
+T1 IXI Dataset (581 healthy subjects)
+web:  https://brain-development.org/ixi-dataset/
+data: http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar
+excel:http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls 
+
+web: 
+data:
+
+
+web: 
+data:
+
+
+----
+
+USEFUL COMMANDS
+
+rsync -v -a --exclude="*.pdf" /home/emanuele/SIV_project/project emanuele.poiana@baldo.disi.unitn.it:/home/emanuele.poiana/SIV_project/
+
+
+MEETING
+- Multi soggetto, ok taglia i dataset filtra per singolo soggetto
+- Riassumi doc di FreeSurfer.
+- Allena Triamese-ViT con i dati del paper
+
+
+TO DO 
+1. Ricrea un env conda con python 3.10
+1. Quando funziona pusha su git
+
+1. conda create -n tri-vit python=3.10
+2. conda install -c intel mkl==2024.0.0 (downgrade for torch compatibility)
+2. conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
+3. conda install opencv matplotlib scikit-learn scipy pandas
+4. conda install tensorboardX -c conda-forge
+
+torch installation. 
+conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
