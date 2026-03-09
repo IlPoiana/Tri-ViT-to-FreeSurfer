@@ -24,7 +24,8 @@ def nii_loader(path, dtype=np.float32, mmap_mode='r'):
 
 def read_table(path):
     """Read Excel table and return values"""
-    return pd.read_excel(path, header=None).values
+    # return pd.read_excel(path, header=None).values
+    return pd.read_excel(path, header=0).values
 
 
 def white0(image, threshold=0):

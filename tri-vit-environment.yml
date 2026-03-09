@@ -1,0 +1,36 @@
+name: tri-vit
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Python
+  - python=3.10
+
+  # PyTorch with CUDA 11.8
+  - pytorch::pytorch=2.1.2
+  - pytorch::torchvision=0.16.2
+  - pytorch::torchaudio=2.1.2
+  - pytorch::pytorch-cuda=11.8
+
+  # Core scientific stack
+  - numpy>=1.23,<2.0
+  - scipy>=1.10
+  - scikit-learn>=1.3
+  - pandas>=2.0
+  - matplotlib>=3.7
+
+  # Medical imaging
+  - conda-forge::nibabel>=5.1
+
+  # OpenCV
+  - conda-forge::opencv>=4.8
+
+  # pip-only packages
+  - pip
+  - pip:
+    - tensorboardX>=2.6
+    - openpyxl>=3.1       # required by pandas to read .xls/.xlsx files
+    - xlrd>=2.0           # required by pandas for legacy .xls support

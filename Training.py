@@ -10,14 +10,14 @@ from utils.config import opt
 from load_data import IMG_Folder
 from Prediction import test
 from sklearn.metrics import mean_absolute_error
-from Models.vit import VisionTransformer
 from Models.MultiViewViT import MultiViewViT
+from Models.ranking_loss import rank_difference_loss
 
 # from Models.ScaleDense import ScaleDense
 # from Models.CNN import CNNModel
 # from Models.ResNet import ResNet
 # from Models.VGG import VGG
-# from Models.ranking_loss import rank_difference_loss
+# from Models.vit import VisionTransformer
 # from Models.GlobalLocalTransformer import GlobalLocalBrainAge
 # from Models.MultiViewResNet import MultiViewResNet
 # from Models.MultiViewCNN import MultiViewCNN
@@ -75,6 +75,11 @@ def main(res):
     valid_data = IMG_Folder( opt.excel_path
                             ,opt.valid_folder)
     
+    #TO REMOVE
+    # print("train_data")
+    # print(train_data[0][0], train_data[0][1], train_data[0][2], train_data[0][3])
+    print(train_data[0][0].shape)
+    #-----------
 
     # ===========  define data loader =========== #
     train_loader = torch.utils.data.DataLoader(  train_data
@@ -95,6 +100,9 @@ def main(res):
 
     # Default model
     opt.model = 'Multi_VIT'
+    # Default parameters settings to avoid unused code left
+    opt.lbd = 0
+    opt.use_gender = False
 
     # if opt.model == 'ScaleDense':
     #     model = ScaleDense.ScaleDense(8, 5, opt.use_gender)
@@ -112,7 +120,8 @@ def main(res):
     #                     backbone='vgg16')
     # elif opt.model == 'VIT':
     #     model= VisionTransformer(num_layers=2)
-    elif opt.model == 'Multi_VIT':
+    # elif opt.model == 'Multi_VIT':
+    if opt.model == 'Multi_VIT':
         model = MultiViewViT(
             image_sizes=[(91, 109), (91, 91), (109, 91)],
             patch_sizes=[(7, 7), (7, 7), (7, 7)],
@@ -141,14 +150,19 @@ def main(res):
     model_test = model
 
     # =========== define the loss function =========== #
-    loss_func_dict = {'mae': nn.L1Loss().to(device)
+    if opt.lbd > 0:
+        loss_func_dict = {'mae': nn.L1Loss().to(device)
                      ,'mse': nn.MSELoss().to(device)
                      ,'ranking':rank_difference_loss(sorter_checkpoint_path=opt.sorter
                                                     ,beta=opt.beta).to(device)
                      }
+        criterion2 = loss_func_dict[opt.aux_loss]
+    else:
+        loss_func_dict = {'mae': nn.L1Loss().to(device)
+                     ,'mse': nn.MSELoss().to(device)
+                     }
         
     criterion1 = loss_func_dict[opt.loss]
-    criterion2 = loss_func_dict[opt.aux_loss]
 
     # =========== define optimizer and learning rate scheduler =========== #
     optimizer = torch.optim.Adam( model.parameters()
@@ -299,10 +313,10 @@ def train(train_loader, model, criterion1,  optimizer, device, epoch):
     for i, (img,_,target, male) in enumerate(train_loader):
         target = torch.from_numpy(np.expand_dims(target,axis=1))
 
-        # =========== convert male lable to one hot type =========== #
+        # =========== convert male label to one hot type =========== #
         if opt.use_gender:
             male = torch.unsqueeze(male,1)
-            male = torch.zeros(male.shape[0],2).scatter_(1,male,1)
+            male = torch.zeros(male.shape[0],2).scatter_(1,male,1) #doesn't work with IXI gender indexing(1 or 2 not 0 or 1) and excel format(id,gender,heigth)
             male = male.to(device).type(torch.FloatTensor)
         input = img.to(device)
         target = target.type(torch.FloatTensor).to(device)

@@ -2,7 +2,7 @@ import torch.nn as nn
 
 import torch
 from .vit import VisionTransformer
-from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 
 
 class MultiViewViT(nn.Module):

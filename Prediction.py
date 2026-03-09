@@ -1,14 +1,13 @@
 import numpy as np
+import os, torch
+import cv2
 import torch.nn as nn
-import os,shutil,torch
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from utils.config import opt
 from load_data import IMG_Folder
-from scipy.stats import pearsonr,spearmanr
-from sklearn.metrics import mean_absolute_error
+from scipy.stats import spearmanr
 from Models.MultiViewViT import MultiViewViT
-import torch.nn.functional as F
-import cv2
 from load_data import nii_loader
 from sklearn.metrics import mean_absolute_error, r2_score
 
@@ -75,7 +74,8 @@ def main():
     #                     backbone='vgg16')
     # elif opt.model == 'VIT':
     #     model= VisionTransformer(num_layers=2)
-    elif opt.model == 'Multi_VIT':
+    # elif opt.model == 'Multi_VIT':
+    if opt.model == 'Multi_VIT':
         model = MultiViewViT(
             image_sizes=[(91, 109), (91, 91), (109, 91)],
             patch_sizes=[(7, 7), (7, 7), (7, 7)],
