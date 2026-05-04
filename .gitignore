@@ -1,6 +1,8 @@
 data/*
 IXI/*
 
+preprocessing/flirtsch
+
 FreeSurfer/data/*
 FreeSurfer/license.txt
 *.sif
