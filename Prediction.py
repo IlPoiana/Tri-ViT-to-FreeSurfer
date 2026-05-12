@@ -193,8 +193,9 @@ def test(valid_loader, model, criterion, device
             input = input.to(device).type(torch.FloatTensor)
             
             # ======= convert male lable to one hot type ======= #
-            male = torch.unsqueeze(male,1)
-            male = torch.zeros(male.shape[0],2).scatter_(1,male,1)
+            male = torch.unsqueeze(male, 1)
+            male = male.long()
+            male = torch.zeros(male.shape[0], 2).scatter_(1, male, 1)
             male = male.type(torch.FloatTensor).to(device)
 
             target = torch.from_numpy(np.expand_dims(target,axis=1))

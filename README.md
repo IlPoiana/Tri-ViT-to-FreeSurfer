@@ -219,7 +219,11 @@ Flags for
 
 ```bash
 # Training for IXI example
-python3 Training.py --train_folder $IXI_TEST_PREPROCESSED --valid_folder $IXI_EVAL_PRE --excel_path IXI.xls
+python3 Training.py \
+--train_folder $IXI_TRAIN_PREPROCESSED \
+--valid_folder $IXI_EVAL_PREPROCESSED \
+--test_folder $IXI_TEST_PREPROCESSED \
+--excel_path IXI.xls
 ```
 
 - `Prediction`:

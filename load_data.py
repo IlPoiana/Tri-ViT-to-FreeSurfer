@@ -138,4 +138,13 @@ class IMG_Folder(torch.utils.data.Dataset):
         img = np.ascontiguousarray(img, dtype=np.float32)
         img = torch.from_numpy(img).type(torch.FloatTensor)
 
+        # Normalize gender labels: convert 1,2 format to 0,1 format
+        # Check if the maximum unique value is greater than 1, then subtract 1
+        try:
+            smale_val = int(smale) if not isinstance(smale, (int, float)) else smale
+            if smale_val > 1:
+                smale = smale_val - 1
+        except (ValueError, TypeError):
+            pass  # Keep original value if conversion fails
+
         return (img, sid, slabel, smale)
