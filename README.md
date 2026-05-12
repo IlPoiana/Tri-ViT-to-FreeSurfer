@@ -1,56 +1,61 @@
+# Tri-Vit implementation
+- [Tri-Vit implementation](#tri-vit-implementation)
+  - [Objectives](#objectives)
+  - [Preprocessing](#preprocessing)
+    - [1 FSL preprocessing](#1-fsl-preprocessing)
+      - [Installation](#installation)
+      - [Running (Apptainer)](#running-apptainer)
+      - [1.1 Brain Extraction](#11-brain-extraction)
+      - [1.2 Bias Field Correction](#12-bias-field-correction)
+      - [1.3 Non-linear Brain Image Registration](#13-non-linear-brain-image-registration)
+      - [1.4 Voxel Normalization](#14-voxel-normalization)
+      - [1.5 Registration to isotropic spatial resolution of 2mm](#15-registration-to-isotropic-spatial-resolution-of-2mm)
+    - [2 ComBat preprocessing](#2-combat-preprocessing)
+  - [Triamese-ViT](#triamese-vit)
+      - [Spearman (differentiable) loss](#spearman-differentiable-loss)
+    - [1. Training](#1-training)
+      - [Setup](#setup)
+    - [2. Inference](#2-inference)
+  - [References](#references)
+
 ## Objectives
-- Reconstruct Tri-ViT preprocessing pipeline
-- Train Tri-ViT and test it 
-- Understand FreeSurfer and find areas of integration with Tri-ViT 
-
-**Free Surfer tasks mapping to DL**
-For doing a segmentation or a region classification task, probably is better to see stuff like YOLO or SAM
-
-I can see instead a better outcome for directly extracting a statistical map and see how it performs.
-Maybe a joint training from freeSurfer output as ground truth?
-
+1. Reconstruct Tri-ViT preprocessing pipeline
+2. Train Tri-ViT and test it 
+3. Understand FreeSurfer and find areas of integration with Tri-ViT 
 
 ## Preprocessing
 *"To ensure compatibility and mitigate the potential effects of protocol variability for the different datasets, we applied a standardized preprocessing protocol using FSL 5.10 [37] to the MRI scans. This protocol included several steps: brain extraction [38], bias field correction, nonlinear registration to the MNI standard space, and normalization of voxel values within the brain area by subtracting the mean and dividing by the standard deviation. We also used ComBat harmonization on the datasets to adjust for scanner and site-specific effects while preserving biological variability. After preprocessing, all MRI scans were resized to a voxel dimension of 91 × 109 × 91 with an isotropic spatial resolution of 2 mm."* 
 
 ### 1 FSL preprocessing
-*"This protocol included several steps: brain extraction [38], bias field correction, nonlinear registration to the MNI standard space, and normalization of voxel values within the brain area by subtracting the mean and dividing by the standard deviation."*
+[FSL reference](https://fsl.fmrib.ox.ac.uk/fsl/docs/index.html)
 
-TO DO
-Easier to implement to harder, more complex handling to easier handling
-1. Isolated apptainer/singularity running FSL, called from a dedicated bash/python script
-  1. Singularity with FSL (and ComBat?)
-  2. Script to run in apptainer that does the preprocessing 
-  3. Script to run the apptainer for all the images 
 
-**Installation**
+| Step in paper                       | FSL tool                                     |
+| ----------------------------------- | -------------------------------------------- |
+| Brain extraction                    | `bet`                                        |
+| Bias field correction               | `fast` (bias correction mode)                |
+| Nonlinear registration to MNI space | `fnirt` (usually with `flirt` pre-alignment) |
+| Voxel normalization (z-score)       | `fslmaths`                                   |
+
+
+
+#### Installation
 [FSL singularity images](https://singularityhub.github.io/singularityhub-archive/collection/MPIB-singularity-fsl/)
 ```bash
 singularity pull shub://MPIB/singularity-fsl:5.0.10
 ```
 
-**Running (Apptainer)**
+#### Running (Apptainer)
 ```bash
 apptainer shell \
---cleanenv \
-singularity-fsl_5.0.10.sif
-
-## Cluster
-srun --job-name=1488762 apptainer shell \
 --cleanenv \
 singularity-fsl_5.0.10.sif
 ```
 
 
 > [!Note]
-> Set `export OMP_NUM_THREADS=8` to enable **multithreading**(in theory)
+> Set `export OMP_NUM_THREADS=8` to enable **multithreading** (in theory)
 
-
-[FSL reference](https://fsl.fmrib.ox.ac.uk/fsl/docs/index.html)
-1. Brain extraction
-2. Bias field correction
-3. Non-linear registration to the MNI standard space
-4. Voxel normalization (mean and std. dev)
 
 #### 1.1 Brain Extraction
 [Reference](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/bet.html)
@@ -126,15 +131,6 @@ cp $FSLDIR/data/standard/MNI152_T1_2mm_brain_mask.nii.gz ./preprocessing
 
 
 #### 1.4 Voxel Normalization
-
-
-| Step in paper                       | FSL tool                                     |
-| ----------------------------------- | -------------------------------------------- |
-| Brain extraction                    | `bet`                                        |
-| Bias field correction               | `fast` (bias correction mode)                |
-| Nonlinear registration to MNI space | `fnirt` (usually with `flirt` pre-alignment) |
-| Voxel normalization (z-score)       | `fslmaths`                                   |
-
 ```bash
 # Step 1: Calculate global mean and std across all voxels
 mean_val=$(fslstats input.nii.gz -M) #-m all voxels(also zero valued) 
@@ -144,48 +140,20 @@ std_val=$(fslstats input.nii.gz -S)
 fslmaths input.nii.gz -sub $mean_val -div $std_val output_zscore.nii.gz
 ```
 
-#### 1.5 Linear interpolation for Isotropic spatial res 2mm
+#### 1.5 Registration to isotropic spatial resolution of 2mm
+Using linear interpolation referring to the standard MNI reference image in FSL.
+
 ```bash
 flirt -in your_T1_image.nii.gz -ref your_T1_image.nii.gz -out your_resampled_T1.nii.gz -applyisoxfm 2
 ```
 
----
-
-
-**Other dependencies (idk if I need those)**
-
-*Python*
-- wxPython: The fsl.utils.idle module has functionality  to schedule functions on the wx idle loop.
-- indexed_gzip: The fsl.data.image.Image class can use indexed_gzip to keep large compressed images on disk instead of decompressing and loading them into memory.
-- trimesh/rtree: The fsl.data.mesh.TriangleMesh class has some methods which use trimesh to perform geometric queries on the mesh.
-- Pillow: The fsl.data.bitmap.Bitmap class uses Pillow to load image files.
-
-*Non-python*
-- The fsl.data.dicom module requires the presence of Chris Rorden's dcm2niix program.
-- The rtree library assumes that libspatialindex is installed on your system.
-- The fsl.transform.x5 module uses h5py, which requires libhdf5.
-
-
-**Neurodocker for building singularity images** 
-
-```bash
-neurodocker generate singularity \
-    --pkg-manager apt \
-    --base-image debian:bullseye \
-    --fsl version=5.0.10 \
-    --user nonroot > fsl_singularity
-
-sudo singularity build fsl_5.0.10.sif fsl_singularity
-```
-
 ### 2 ComBat preprocessing
-This is a Dataset 
-
 [original implementation](https://github.com/Jfortin1/ComBatHarmonization)
-Harmonization done for scans coming from different machinery
+
+This is a dataset harmonization done for MRI scans coming from different machinery
 
 ## Triamese-ViT
-They have used **T1 structural MRI** scans from IXI and ABIDE[(ref)](#references)
+They have used **T1 structural MRI** scans from IXI and ABIDE [(ref)](#references)
 
 I'm removing all the useless models because I'm getting a lot of interferences with the dependencies
 
@@ -199,7 +167,7 @@ It actually compare the **rank** for each sample from X to the rank from Y. The 
 
 The ranking operations is non-differentiable, so a small model approximating the ranking function is the adopted solution from the authors.
 
-> [!Warning]sorter
+> [!Warning]Sorter
 > If using the ranking aux_loss(default!) is necessary to have the "pretrained SoDeep sorter network weights"
 
 
@@ -238,98 +206,27 @@ python3 Training.py \
 
 ### 2. Inference
 
-## TO REMOVE
-
-**Setup for testing**
-```bash
-export SAMPLE_NAME="IXI012-HH-1211-T1.nii.gz"
-export IXI_TEST_PRE="$(pwd)/data/IXI_test_pre"
-export SAMPLE_PATH="${IXI_TEST_PRE}/voxel/${SAMPLE_NAME}"
-```
-
 ```bash
 IXI_DATASET="../data/IXI_validate" source run_preprocessing.sh 0 1 
 ```
 
 ## References
 
-T1 IXI Dataset (581 healthy subjects)
-- web:  https://brain-development.org/ixi-dataset/
-- data: http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar
-- excel:http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls 
-
-NeuroDocker
-- gitHub: https://github.com/ReproNim/neurodocker
-- doc   : https://repronim.org/neurodocker/user_guide/examples.html 
-
-FSL
-- doc: https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/index
-
-FreeSurfer
-- doc: https://surfer.nmr.mgh.harvard.edu/fswiki
-
-Triamese-ViT
-- paper : https://ieeexplore.ieee.org/document/11016176
-- gitHub: https://github.com/zhangz59/Triamese-ViT
-
-web: 
-data:
+- **T1 IXI Dataset** 
+  - web:  https://brain-development.org/ixi-dataset/
+  - data: http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI-T1.tar
+  - excel:http://biomedic.doc.ic.ac.uk/brain-development/downloads/IXI/IXI.xls 
 
 
-----
+- **FSL**
+  - singularity images: https://singularityhub.github.io/singularityhub-archive/collection/MPIB-singularity-fsl/
+  - doc: https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/index
 
-USEFUL COMMANDS
+- **FreeSurfer**
+  - doc: https://surfer.nmr.mgh.harvard.edu/fswiki
 
-rsync -v -a --exclude="*.pdf" /home/emanuele/SIV_project/project emanuele.poiana@baldo.disi.unitn.it:/home/emanuele.poiana/SIV_project/
-
-Visualize slices of the MRI 
-
-```bash
-export SAMPLE_PATH="data/IXI_test_pre"
-#fast
-python visualize.py $SAMPLE_PATH/fast/IXI012-HH-1211-T1_restore.nii.gz $SAMPLE_PATH/images/
-#fnirt
-python visualize.py $SAMPLE_PATH/fnirt/IXI012-HH-1211-T1.nii.gz $SAMPLE_PATH/images/
-```
+- **Triamese-ViT**
+  - paper : https://ieeexplore.ieee.org/document/11016176
+  - gitHub: https://github.com/zhangz59/Triamese-ViT (Original repo)
 
 
-MEETING 1
-- Multi soggetto, ok taglia i dataset filtra per singolo soggetto
-- Riassumi doc di FreeSurfer.
-- Allena Triamese-ViT con i dati del paper
-
-
-MEETING 2
-
-- TriVit: richiede preprocessing in FSL, non ho i parametri usati per il preprocessing
-- TriVit: non ho il modello pre-trainato
-- Free Surfer: differenti entry point di ViT?
-
-MEETING 3
-1. Preprocessing, fatto come indicato, ma non mi sembra super preciso, si potrebbe:
-  - Tenere 1mm e passare tutte le immagini(più pesante da processare)
-  - Tenere 1mm, e passare metà delle immagini
-  - Non fare la seconda registrazione ma solo la prima
-2. Training
-
-
-
-TO DO 
-part 1
-1. crea una pipeline per estrarre le immagini ViT-ready
-
-part 2
-1. Traina ViT per vedere se impara qualcosa
-2. Testa Freesurfer e classifica gli outputs
-part 3 definisci con il prossimo meeting
-
-Env creation
-
-1. conda create -n tri-vit python=3.10
-2. conda install -c intel mkl==2024.0.0 (downgrade for torch compatibility)
-3. conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
-4. conda install opencv matplotlib scikit-learn scipy pandas
-5. conda install tensorboardX -c conda-forge
-
-torch installation. 
-conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1  pytorch-cuda=11.8 -c pytorch -c nvidia
